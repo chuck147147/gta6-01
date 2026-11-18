@@ -46,46 +46,13 @@ export function drawCar(ctx,c,driven,state){ctx.save();ctx.translate(c.x,c.y);ct
  rect(ctx,-w/2+3,-h/2+1,7,4,'#fff1bb');rect(ctx,w/2-10,-h/2+1,7,4,'#fff1bb');rect(ctx,-w/2+3,h/2-5,7,4,c.braking?'#ff392b':'#993d38');rect(ctx,w/2-10,h/2-5,7,4,c.braking?'#ff392b':'#993d38');
  if(driven){ctx.strokeStyle='#f6e6a7';ctx.lineWidth=1;ctx.strokeRect(-w/2-3,-h/2-3,w+6,h+6);}
  if(c.damage>65)for(let i=0;i<4;i++)circle(ctx,Math.sin(state.elapsed*2+i)*12,-h*.4-((state.elapsed*25+i*13)%60),8+i*3,'#4a535b66');ctx.restore();}
-export function drawPlayer(ctx,p){if(p.car)return;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);const bob=Math.sin(p.walk)*2;circle(ctx,3,4,13,'#1f38414d');round(ctx,-11,-8+bob,22,24,6,'#152d40');round(ctx,-9,-7+bob,18,21,6,p.shirt||'#ee8a65');circle(ctx,0,-8+bob,7,'#dbad7b');rect(ctx,-7,8+Math.sin(p.walk)*3,5,8,'#253b54');rect(ctx,2,8-Math.sin(p.walk)*3,5,8,'#253b54');if(p.punchTime>0){ctx.save();ctx.rotate(-Math.sin(p.punchTime/.32*Math.PI)*1.4);round(ctx,8,-28,6,27,3,'#e4b184');ctx.restore();}else rect(ctx,8,-9,5,10,'#e4b184');ctx.restore();}
+export function drawPlayer(ctx,p){if(p.car)return;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);const bob=Math.sin(p.walk)*2;circle(ctx,3,4,13,'#1f38414d');round(ctx,-11,-8+bob,22,24,6,'#152d40');round(ctx,-9,-7+bob,18,21,6,p.shirt||'#ee8a65');circle(ctx,0,-8+bob,7,'#dbad7b');rect(ctx,-7,8+Math.sin(p.walk)*3,5,8,'#253b54');rect(ctx,2,8-Math.sin(p.walk)*3,5,8,'#253b54');if(p.punchTime>0){ctx.save();ctx.rotate(-Math.sin(p.punchTime/.32*Math.PI)*1.4);round(ctx,8,-28,6,27,3,'#e4b184');ctx.restore();}else rect(ctx,8,-9,5,10,'#e4b184');ctx.fillStyle='#fff4c9';ctx.beginPath();ctx.moveTo(0,-23);ctx.lineTo(-4,-17);ctx.lineTo(4,-17);ctx.fill();ctx.restore();}
 export function drawLighting(ctx,world,cars,player,state,camera){const visible=(x,y,margin=220)=>!camera||(Math.abs(x-camera.x)<640/camera.zoom+margin&&Math.abs(y-camera.y)<360/camera.zoom+margin);const n=nightAmount(state.timeOfDay),gold=Math.max(0,1-Math.abs(state.timeOfDay-.77)/.07);ctx.fillStyle=`rgba(255,135,57,${gold*.19})`;ctx.fillRect(0,0,4800,3600);ctx.fillStyle=`rgba(5,18,51,${n*.64})`;ctx.fillRect(0,0,4800,3600);
  const pool=(x,y,r,color)=>{const grad=ctx.createRadialGradient(x,y,0,x,y,r);grad.addColorStop(0,color);grad.addColorStop(1,'#ffffff00');ctx.fillStyle=grad;ctx.fillRect(x-r,y-r,r*2,r*2);};
  if(n>0){ctx.save();ctx.globalAlpha=n;ctx.globalCompositeOperation='screen';for(const p of world.props)if(p.type==='lamp'&&visible(p.x,p.y))pool(p.x,p.y,100,'#ffdc8555');for(const b of world.buildings){if(!visible(b.x,b.y))continue;for(const w of b.windows||[])if(w.lit)rect(ctx,w.x,w.y,8,10,'#ffe09a99');if(b.neon){const x=b.x+b.w,y=b.y+15;pool(x,y+40,85,'#f544c644');ctx.shadowColor='#ff4fd2';ctx.shadowBlur=14;ctx.fillStyle='#ff8adf';ctx.textAlign='center';ctx.font='bold 10px sans-serif';[...b.neon].forEach((c,i)=>ctx.fillText(c,x,y+13+i*11));ctx.shadowBlur=0;}}ctx.save();ctx.translate(4540,3143);ctx.rotate(state.elapsed*.4);const beam=ctx.createLinearGradient(0,0,720,0);beam.addColorStop(0,'#fff2a666');beam.addColorStop(1,'#fff2a600');polygon(ctx,[{x:0,y:0},{x:720,y:-140},{x:720,y:140}],beam);ctx.restore();ctx.restore();}
  for(const c of cars){if(!visible(c.x,c.y,300))continue;if(c.police&&c.pursuing){pool(c.x-12,c.y,65,'#ff234955');pool(c.x+12,c.y,65,'#238dff55');}if(c===player.car||n>.1){ctx.save();ctx.translate(c.x,c.y);ctx.rotate(c.angle);const grad=ctx.createLinearGradient(0,-c.h/2,0,-250);grad.addColorStop(0,`rgba(255,246,187,${.12+n*.3})`);grad.addColorStop(1,'#fff6bb00');polygon(ctx,[{x:-c.w/2,y:-c.h/2},{x:-85,y:-250},{x:85,y:-250},{x:c.w/2,y:-c.h/2}],grad);ctx.restore();}}}
-function drawPlayerRing(ctx,player,elapsed){
- const pulse=Math.sin(elapsed*4);
- ctx.save();
- ctx.strokeStyle='#ffd47e';
- ctx.shadowColor='#ffbd57';
- ctx.shadowBlur=9;
- ctx.globalAlpha=.65+pulse*.1;
- ctx.lineWidth=2.5;
- ctx.beginPath();
- ctx.ellipse(player.x,player.y+2,22+pulse*1.5,18+pulse*1.5,0,0,TAU);
- ctx.stroke();
- ctx.restore();
-}
-function drawPlayerChevron(ctx,player,opacity){
- if(opacity<=0)return;
- ctx.save();
- ctx.translate(player.x,player.y-29);
- ctx.globalAlpha=opacity;
- ctx.lineCap='round';
- ctx.lineJoin='round';
- ctx.beginPath();
- ctx.moveTo(-5,-3);
- ctx.lineTo(0,2);
- ctx.lineTo(5,-3);
- ctx.strokeStyle='#473322';
- ctx.lineWidth=4;
- ctx.stroke();
- ctx.strokeStyle='#ffda88';
- ctx.lineWidth=2;
- ctx.stroke();
- ctx.restore();
-}
-export function renderScene(ctx,world,cars,player,camera,state){ctx.clearRect(0,0,WIDTH,HEIGHT);ctx.save();ctx.translate(WIDTH/2,HEIGHT/2);ctx.scale(camera.zoom,camera.zoom);ctx.rotate(camera.rotation||0);ctx.translate(-camera.x,-camera.y);drawWorld(ctx,world,state,camera);for(const c of cars)drawCar(ctx,c,c===player.car,state);for(const p of [...(state.peds||[]),...(state.companions||[])]){if(p.down){rect(ctx,p.x-15,p.y-5,28,10,p.shirt);ctx.fillStyle='#ffe6a1';ctx.font='18px sans-serif';ctx.fillText('✦',p.x,p.y-12);}else drawPlayer(ctx,p);}if(!player.car)drawPlayerRing(ctx,player,state.elapsed);drawPlayer(ctx,player);drawActivities(ctx,window.__game);drawLighting(ctx,world,cars,player,state,camera);
+export function renderScene(ctx,world,cars,player,camera,state){ctx.clearRect(0,0,WIDTH,HEIGHT);ctx.save();ctx.translate(WIDTH/2,HEIGHT/2);ctx.scale(camera.zoom,camera.zoom);ctx.rotate(camera.rotation||0);ctx.translate(-camera.x,-camera.y);drawWorld(ctx,world,state,camera);for(const c of cars)drawCar(ctx,c,c===player.car,state);for(const p of [...(state.peds||[]),...(state.companions||[])]){if(p.down){rect(ctx,p.x-15,p.y-5,28,10,p.shirt);ctx.fillStyle='#ffe6a1';ctx.font='18px sans-serif';ctx.fillText('✦',p.x,p.y-12);}else drawPlayer(ctx,p);}drawPlayer(ctx,player);drawActivities(ctx,window.__game);drawLighting(ctx,world,cars,player,state,camera);
  if(state.target){const t=state.target;const glow=ctx.createLinearGradient(t.x,t.y-180,t.x,t.y);glow.addColorStop(0,'#ffd56b00');glow.addColorStop(1,'#ffd56b88');rect(ctx,t.x-18,t.y-180,36,180,glow);ctx.strokeStyle='#ffe299';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(t.x,t.y,36,20,0,0,TAU);ctx.stroke();ctx.fillStyle='#ffe5a0';ctx.textAlign='center';ctx.font='bold 20px sans-serif';ctx.fillText(state.missionActive?'▼':'D',t.x,t.y-52);}
  for(const c of cars)if(c.label){ctx.textAlign='center';ctx.fillStyle='#ffe09a';ctx.font='bold 12px sans-serif';ctx.fillText('▼ '+c.label,c.x,c.y-55);}
  for(const l of world.landmarks)if(Math.hypot(l.x-player.x,l.y-player.y)<620){ctx.font='bold 14px sans-serif';ctx.textAlign='center';const x=l.name==='The Lighthouse'?l.x:l.x+89,y=l.y-25;round(ctx,x-ctx.measureText(l.name).width/2-12,y-18,ctx.measureText(l.name).width+24,28,5,'#102b3cde');ctx.fillStyle='#f9e6b5';ctx.fillText(l.name,x,y);}
- drawPlayerChevron(ctx,player,state.playerMarkerOpacity);
  ctx.restore();}

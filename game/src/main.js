@@ -36,12 +36,5 @@ function update(dt){if(state.shot||!['play','title'].includes(state.mode))return
  const speed=player.car?Math.abs(player.car.speed):0;camera.zoom+=(1-speed/2100-camera.zoom)*(1-Math.exp(-dt*3));camera.x+=(player.x+player.vx*.25-camera.x)*(1-Math.exp(-dt*5));camera.y+=(player.y+player.vy*.25-camera.y)*(1-Math.exp(-dt*5));camera.x=Math.max(WIDTH/2/camera.zoom,Math.min(4800-WIDTH/2/camera.zoom,camera.x));camera.y=Math.max(HEIGHT/2/camera.zoom,Math.min(3600-HEIGHT/2/camera.zoom,camera.y));saveClock+=dt;if(saveClock>15){saveClock=0;saveGame(g);}}
 updatePeds(g.peds,player,cars,world,0,g.reportCrime);updateMissions(g,0);
 stageShot(params.get('shot'),state,player,cars,camera,g);
-let last=0,accumulator=0;
-function frame(now){const dt=Math.min((now-last)/1000,.1);last=now;actions();accumulator+=dt;while(accumulator>=STEP){update(STEP);accumulator-=STEP;}g.audio.update(g,dt);const subtitle=g.missions.dialogue[0];if(subtitle!==state.lastSubtitle){if(subtitle)g.audio.play('subtitle');state.lastSubtitle=subtitle;}
- const markerOpacity=player.car?0:1;
- state.playerMarkerOpacity??=markerOpacity;
- const markerDelta=markerOpacity-state.playerMarkerOpacity;
- state.playerMarkerOpacity+=Math.sign(markerDelta)*Math.min(dt*5,Math.abs(markerDelta));
- renderScene(ctx,world,cars,player,camera,state);if(state.mode==='title')drawTitle(ctx,state);else{drawHUD(ctx,world,player,cars,state);drawSystems(ctx,g);if(state.mode==='pause')drawPause(ctx,state);}document.title=state.shot?'SHOT-READY':'PALMERA BAY — READY';requestAnimationFrame(frame);}
-// Staged scenes are frozen and ready as soon as the first render completes.
-if(state.shot)frame(performance.now());else requestAnimationFrame(frame);
+let last=0,accumulator=0,shotFrames=0;
+function frame(now){const dt=Math.min((now-last)/1000,.1);last=now;actions();accumulator+=dt;while(accumulator>=STEP){update(STEP);accumulator-=STEP;}g.audio.update(g,dt);const subtitle=g.missions.dialogue[0];if(subtitle!==state.lastSubtitle){if(subtitle)g.audio.play('subtitle');state.lastSubtitle=subtitle;}renderScene(ctx,world,cars,player,camera,state);if(state.mode==='title')drawTitle(ctx,state);else{drawHUD(ctx,world,player,cars,state);drawSystems(ctx,g);if(state.mode==='pause')drawPause(ctx,state);}if(state.shot&&++shotFrames>=30)document.title='SHOT-READY';else if(!state.shot)document.title='PALMERA BAY — READY';requestAnimationFrame(frame);}requestAnimationFrame(frame);
