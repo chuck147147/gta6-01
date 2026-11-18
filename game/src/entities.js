@@ -83,7 +83,7 @@ export function updateCars(cars,player,input,world,dt){
   if(moveWithSlide(world,c,c.vx*dt,c.vy*dt,Math.max(c.w/2,22))){world.onCrash?.(c,null,Math.abs(c.speed));c.damage=Math.min(100,c.damage+Math.abs(c.speed)*.025);c.speed*=-.3;c.vx*=-.25;c.vy*=-.25;}
   movement.push(dt>0?Math.hypot(c.x-previousX,c.y-previousY)/dt:0);
  }
- for(let i=0;i<cars.length;i++)for(let j=i+1;j<cars.length;j++){const a=cars[i],b=cars[j],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy),r=(a.h+b.h)*.37;if(d>0&&d<r){const nx=dx/d,ny=dy/d,p=(r-d)/2;moveWithSlide(world,a,-nx*p,-ny*p,22);moveWithSlide(world,b,nx*p,ny*p,22);const impact=Math.hypot(a.vx-b.vx,a.vy-b.vy);if(impact>35)world.onCrash?.(a,b,impact);a.damage=Math.min(100,a.damage+impact*.012);b.damage=Math.min(100,b.damage+impact*.012);a.speed*=-.22;b.speed*=-.22;}}
+ for(let i=0;i<cars.length;i++)for(let j=i+1;j<cars.length;j++){const a=cars[i],b=cars[j],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy),r=(a.h+b.h)*.37;if(d>0&&d<r){const nx=dx/d,ny=dy/d,p=(r-d)/2;moveWithSlide(world,a,-nx*p,-ny*p,22);moveWithSlide(world,b,nx*p,ny*p,22);const impact=Math.hypot(a.vx-b.vx,a.vy-b.vy);if(impact>35)world.onCrash?.(a,b,impact);if(impact>35){a.damage=Math.min(100,a.damage+impact*.012);b.damage=Math.min(100,b.damage+impact*.012);}a.speed*=-.22;b.speed*=-.22;}}
  for(let i=cars.length-1;i>=0;i--){
   const c=cars[i];
   if(c===player.car||(!c.traffic&&!c.police))continue;
