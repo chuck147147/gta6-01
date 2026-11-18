@@ -11,6 +11,8 @@ export function initPolice(g){const wanted={level:0,heat:0,state:'clear',lastSee
     if(distance<minDistance||distance>maxDistance)continue;
     const alignment=(dx*bearingX+dy*bearingY)/(distance*bearingLength);
     let score=distance-minDistance+alignment*180+(alignment>0?300:0);
+    const pvx=player.vx||0,pvy=player.vy||0,pSpeed=Math.hypot(pvx,pvy);
+    if(pSpeed>60){const forwardAlignment=(dx*pvx+dy*pvy)/(distance*pSpeed);if(forwardAlignment>0.2)score+=forwardAlignment*700;}
     if(score>=bestScore||circleHitsWorld(world,x,y,radius)||g.cars.some(other=>other!==c&&Math.hypot(other.x-x,other.y-y)<70))continue;
     for(let remaining=distance-6;remaining>=52;remaining-=6)if(circleHitsWorld(world,player.x+dx*remaining/distance,player.y+dy*remaining/distance,radius)){score+=1000+remaining;break;}
     for(const other of g.cars){if(other===c||other===player.car||other.traffic||other.ai)continue;

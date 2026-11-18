@@ -27,7 +27,7 @@ function trafficControl(c,cars,world,dt){
  if(!ahead()){c.angle+=Math.PI;c.speed=0;c.vx=0;c.vy=0;if(!ahead())return;}
  const vertical=Math.abs(Math.cos(c.angle))>.5,coord=vertical?c.y:c.x,spacing=vertical?450:600,origin=vertical?225:300;
  const intersection=Math.round((coord-origin)/spacing),distance=Math.abs(coord-(origin+intersection*spacing));
- if(distance<58&&c.intersection!==String(intersection)){c.stop=.55;c.intersection=String(intersection);}
+ if(distance<58&&c.intersection!==String(intersection)){c.stop=.3;c.intersection=String(intersection);}
  c.stop=Math.max(0,c.stop-dt);
  const fx=Math.sin(c.angle),fy=-Math.cos(c.angle);
  const blocked=cars.some(o=>o!==c&&((o.x-c.x)*fx+(o.y-c.y)*fy)>0&&((o.x-c.x)*fx+(o.y-c.y)*fy)<105&&Math.abs((o.x-c.x)*fy-(o.y-c.y)*fx)<32);
