@@ -1,141 +1,91 @@
-// Drawing only: the world's state and the current screen in, pixels out. The 1280x720 playfield
-// is scaled to fit the window and centred, the margin filled with the backdrop colour. Flat
-// rectangles and circles, canvas text for the HUD and the panels. Text that holds a number is
-// rebuilt only when the number changes, so a frame allocates nothing.
-import { FIELD, FONT, LIVES, PALETTE } from './config.js';
-import { KIND_COIN } from './world.js';
-
-export const SCREEN_TITLE = 'title';
-export const SCREEN_PLAY = 'play';
-export const SCREEN_PAUSED = 'paused';
-export const SCREEN_OVER = 'over';
-
-/** The panel's width; its height grows with its lines: room for the title, the lines and the prompt. */
-const PANEL = { width: 600, top: 134, line: 34, bottom: 70 };
-const LIFE_SIZE = 20;
-const LIFE_GAP = 8;
-
-function cachedLabel(prefix) {
-  let value = -1;
-  let text = '';
-  return function label(next) {
-    if (next !== value) {
-      value = next;
-      text = prefix + next;
-    }
-    return text;
-  };
+import {drawActivities} from './activities.js';
+import {WIDTH,HEIGHT} from './config.js';
+const TAU=Math.PI*2;
+function rect(ctx,x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(x,y,w,h);}
+function round(ctx,x,y,w,h,r,color){ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill();}
+function circle(ctx,x,y,r,color){ctx.fillStyle=color;ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.fill();}
+function polygon(ctx,points,color){ctx.fillStyle=color;ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fill();}
+function paintWorld(ctx,world,state,camera){
+ rect(ctx,0,0,4800,3600,'#a5bd78');polygon(ctx,world.water,'#249da5');polygon(ctx,world.beach,'#f6d99c');
+ rect(ctx,0,2952,4800,18,'#b98b60');for(let x=0;x<4800;x+=12)rect(ctx,x,2952,1,18,'#f7d7a744');
+ rect(ctx,4440,3000,200,230,'#d9c79e');
+ for(let y=3080;y<3600;y+=46){ctx.strokeStyle='#a3dbcf44';ctx.lineWidth=2;ctx.beginPath();for(let x=0;x<4800;x+=30){const yy=y+Math.sin(x*.015+state.elapsed*.6)*4;x?ctx.lineTo(x,yy):ctx.moveTo(x,yy);}ctx.stroke();}
+ for(let x=180;x<1100;x+=230){rect(ctx,x,3020,40,290,'#896f51');rect(ctx,x-55,3280,135,20,'#a18b68');for(let y=3090;y<3280;y+=70){round(ctx,x+35,y,26,50,9,'#e8e8d6');rect(ctx,x+41,y+15,14,18,'#658a9b');rect(ctx,x+47,y-8,2,62,'#e4dcc1');}}
+ for(const r of world.roads){rect(ctx,r.x-16,r.y-16,r.w+32,r.h+32,'#d1c8b4');rect(ctx,r.x-3,r.y-3,r.w+6,r.h+6,'#eee0bf');rect(ctx,r.x,r.y,r.w,r.h,'#535d65');ctx.strokeStyle='#ebd69a';ctx.lineWidth=2;ctx.setLineDash([22,23]);ctx.beginPath();if(r.axis==='v'){ctx.moveTo(r.center,0);ctx.lineTo(r.center,3050);}else{ctx.moveTo(0,r.center);ctx.lineTo(4800,r.center);}ctx.stroke();ctx.setLineDash([]);}
+ for(let x=300;x<4800;x+=600)for(let y=225;y<3000;y+=450){rect(ctx,x-46,y-46,92,92,'#535d65');for(let k=-35;k<40;k+=12){rect(ctx,x+k,y-66,6,17,'#e9e5d3');rect(ctx,x+k,y+49,6,17,'#e9e5d3');rect(ctx,x-66,y+k,17,6,'#e9e5d3');rect(ctx,x+49,y+k,17,6,'#e9e5d3');}}
+ for(const l of world.parkingLots){rect(ctx,l.x,l.y,l.w,l.h,'#39474e');for(let x=l.x+5;x<l.x+l.w;x+=42){rect(ctx,x,l.y+12,2,78,'#e5e4d0');rect(ctx,x,l.y+90,38,2,'#e5e4d0');}ctx.fillStyle='#d3d9ce';ctx.font='14px sans-serif';ctx.fillText('P',l.x+8,l.y+120);}
+ for(const r of world.roads)for(let p=110;p<(r.axis==='h'?4800:2900);p+=220){const x=r.axis==='h'?p:r.center+22,y=r.axis==='h'?r.center+22:p;circle(ctx,x,y,4,'#35444d');ctx.save();ctx.translate(x+(r.axis==='h'?40:0),y+(r.axis==='h'?0:40));if(r.axis==='h')ctx.rotate(Math.PI/2);ctx.strokeStyle='#e7ddbd88';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,12);ctx.lineTo(0,-10);ctx.moveTo(-5,-4);ctx.lineTo(0,-10);ctx.lineTo(5,-4);ctx.stroke();ctx.restore();}
+ for(const p of world.plazas){rect(ctx,p.x,p.y,p.w,p.h,'#dec8ab');for(let x=p.x+8;x<p.x+p.w-20;x+=35){round(ctx,x,p.y+12,25,8,2,'#8a5b43');rect(ctx,x,p.y+p.h-20,24,12,'#5d8c53');}}
+ for(const p of world.yards){rect(ctx,p.x,p.y,p.w,p.h,'#83a65b');ctx.strokeStyle='#e8d5ab';ctx.lineWidth=3;ctx.strokeRect(p.x,p.y,p.w,p.h);for(let x=p.x;x<p.x+p.w;x+=12)rect(ctx,x,p.y-3,2,9,'#fff0cc');rect(ctx,p.x+15,p.y+20,p.w-30,12,'#48764b');}
+ const visible=(x,y,margin=240)=>Math.abs(x-camera.x)<WIDTH/camera.zoom/2+margin&&Math.abs(y-camera.y)<HEIGHT/camera.zoom/2+margin;
+ for(const b of world.buildings){if(!visible(b.x,b.y))continue;rect(ctx,b.x+12,b.y+15,b.w+8,b.h+8,'#23394b38');rect(ctx,b.x,b.y,b.w,b.h,b.color);rect(ctx,b.x,b.y+b.h-12,b.w,12,'#00000023');rect(ctx,b.x+6,b.y+6,b.w-12,3,'#ffffff70');rect(ctx,b.x+8,b.y+12,b.w-16,b.h-28,'#ffffff12');
+  if(b.roof===0){rect(ctx,b.x+20,b.y+20,30,23,'#8a9698');for(let i=0;i<4;i++)rect(ctx,b.x+23,b.y+23+i*4,24,1,'#c1c7c2');}else if(b.roof===1){circle(ctx,b.x+35,b.y+35,17,'#505f68');circle(ctx,b.x+34,b.y+31,15,'#9dada7');}else {rect(ctx,b.x+20,b.y+20,b.w-40,20,'#00000018');}
+  for(const w of b.windows||[]){rect(ctx,w.x-1,w.y-1,10,13,'#e9d2af');rect(ctx,w.x,w.y,8,10,'#345565');rect(ctx,w.x+3,w.y,1,10,'#72979d');}if(b.neon){round(ctx,b.x+b.w-12,b.y+15,24,Math.min(112,b.neon.length*12+10),3,'#253449');ctx.save();ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillStyle='#a87598';[...b.neon].forEach((c,i)=>ctx.fillText(c,b.x+b.w,b.y+28+i*11));ctx.restore();}
+  if(b.awning){rect(ctx,b.x+14,b.y+b.h-2,b.w-28,13,b.landmark?'#1e676c':'#c87566');for(let x=b.x+14;x<b.x+b.w-14;x+=17)rect(ctx,x,b.y+b.h-2,7,13,'#ffffff55');}
+  if(b.landmark){ctx.save();ctx.textAlign='center';ctx.font='bold 13px sans-serif';ctx.fillStyle='#162f40';ctx.fillText(b.landmark.sign,b.x+b.w/2,b.y+b.h/2+5);ctx.restore();}
+ }
+ // Service entrances are marked independently from mission targets.
+ for(const s of [{x:3900,y:650,label:'TORQUE & SONS  /  SERVICE'},{x:1350,y:2430,label:'BAY MART'}]){ctx.strokeStyle='#77d2bd';ctx.lineWidth=3;ctx.strokeRect(s.x-43,s.y-33,86,66);ctx.textAlign='center';ctx.fillStyle='#cbf1d6';ctx.font='bold 11px sans-serif';ctx.fillText(s.label,s.x,s.y-44);}
+ // Eastern marina berths, beside Lighthouse Point.
+ for(let x=4050;x<4380;x+=120){rect(ctx,x,3030,40,280,'#a47e55');for(let y=3100;y<3270;y+=78){round(ctx,x+28,y,27,58,12,'#fff0d5');round(ctx,x+33,y+16,17,25,5,'#64a4b3');rect(ctx,x+40,y-8,2,65,'#eddfbc');}}
+ // Lighthouse and its low sea wall.
+ circle(ctx,4540,3150,39,'#aa9b7e');circle(ctx,4540,3150,26,'#f5ecd1');circle(ctx,4540,3146,17,'#d46c59');circle(ctx,4540,3143,10,'#ffed9f');
+ for(const p of world.props){if(!visible(p.x,p.y,100))continue;const {x,y}=p;if(p.type==='palm'){ctx.strokeStyle='#725c48';ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(x+6,y+8);ctx.lineTo(x,y-13);ctx.stroke();ctx.save();ctx.translate(x,y-16);ctx.rotate(Math.sin(state.elapsed*1.2+p.phase)*.045);for(let a=0;a<TAU;a+=TAU/7){ctx.save();ctx.rotate(a);ctx.fillStyle=a<3?'#427967':'#538d6b';ctx.beginPath();ctx.moveTo(0,0);ctx.quadraticCurveTo(22,-12,39,6);ctx.quadraticCurveTo(19,4,0,0);ctx.fill();ctx.restore();}ctx.restore();circle(ctx,x,y-16,5,'#c6b47a');}else if(p.type==='tree'){circle(ctx,x+4,y+6,25,'#263b3a33');circle(ctx,x,y,24,'#40865c');circle(ctx,x-6,y-6,17,'#64a15c');}else if(p.type==='umbrella'){circle(ctx,x,y,13,p.phase%3?'#f2846c':'#49b8be');rect(ctx,x+18,y-7,11,23,'#f9e8ba');circle(ctx,x,y,3,'#fff1b9');}else if(p.type==='lamp'){rect(ctx,x-2,y-14,4,29,'#52616a');circle(ctx,x,y-15,5,'#f1e1a0');}else if(p.type==='bench'){round(ctx,x,y,25,8,2,'#866d50');}else{round(ctx,x,y,7,11,2,'#d27359');}}
 }
-
-export function createRenderer(canvas) {
-  const context = canvas.getContext('2d');
-  const view = { scale: 1, x: 0, y: 0 };
-  const scoreLabel = cachedLabel('Score ');
-  const levelLabel = cachedLabel('Level ');
-  const finalLabel = cachedLabel('Score ');
-  const bestLabel = cachedLabel('Best ');
-
-  function resize() {
-    const ratio = window.devicePixelRatio || 1;
-    const width = Math.round(window.innerWidth * ratio);
-    const height = Math.round(window.innerHeight * ratio);
-    canvas.width = width;
-    canvas.height = height;
-    view.scale = Math.min(width / FIELD.width, height / FIELD.height);
-    view.x = (width - FIELD.width * view.scale) / 2;
-    view.y = (height - FIELD.height * view.scale) / 2;
-  }
-
-  const fonts = new Map();
-  function text(value, x, y, size, color, align) {
-    if (!fonts.has(size)) fonts.set(size, `${size}px ${FONT}`);
-    context.font = fonts.get(size);
-    context.fillStyle = color;
-    context.textAlign = align;
-    context.fillText(value, x, y);
-  }
-
-  function drawField(state) {
-    context.fillStyle = PALETTE.sky;
-    context.fillRect(0, 0, FIELD.width, FIELD.height);
-    context.fillStyle = PALETTE.ground;
-    context.fillRect(0, FIELD.groundY, FIELD.width, FIELD.height - FIELD.groundY);
-
-    const items = state.items;
-    for (let index = 0; index < items.length; index += 1) {
-      const item = items[index];
-      if (!item.active) continue;
-      if (item.kind === KIND_COIN) {
-        context.fillStyle = PALETTE.coin;
-        context.beginPath();
-        context.arc(item.x + item.width / 2, item.y + item.height / 2, item.width / 2, 0, Math.PI * 2);
-        context.fill();
-      } else {
-        context.fillStyle = PALETTE.block;
-        context.fillRect(item.x, item.y, item.width, item.height);
-      }
-    }
-
-    const player = state.player;
-    // Blink while invulnerable after a hit: hidden on every other tenth of a second.
-    if (player.invulnerable === 0 || Math.floor(player.invulnerable * 10) % 2 === 1) {
-      context.fillStyle = PALETTE.player;
-      context.fillRect(player.x, player.y, player.width, player.height);
-    }
-  }
-
-  function drawHud(state) {
-    context.textBaseline = 'top';
-    text(scoreLabel(state.score), 24, 20, 28, PALETTE.text, 'left');
-    text(levelLabel(state.level), FIELD.width / 2, 20, 28, PALETTE.text, 'center');
-    const firstLife = FIELD.width - 24 - LIVES * (LIFE_SIZE + LIFE_GAP) + LIFE_GAP;
-    text('Lives', firstLife - 12, 20, 28, PALETTE.text, 'right');
-    for (let life = 0; life < LIVES; life += 1) {
-      context.fillStyle = life < state.lives ? PALETTE.player : PALETTE.ground;
-      context.fillRect(firstLife + life * (LIFE_SIZE + LIFE_GAP), 24, LIFE_SIZE, LIFE_SIZE);
-    }
-  }
-
-  function drawPanel(title, lines, prompt) {
-    const height = PANEL.top + lines.length * PANEL.line + PANEL.bottom;
-    const x = (FIELD.width - PANEL.width) / 2;
-    const y = (FIELD.height - height) / 2;
-    context.fillStyle = PALETTE.panel;
-    context.fillRect(x, y, PANEL.width, height);
-    context.textBaseline = 'alphabetic';
-    text(title, FIELD.width / 2, y + 78, 48, PALETTE.text, 'center');
-    for (let index = 0; index < lines.length; index += 1) {
-      text(lines[index], FIELD.width / 2, y + PANEL.top + index * PANEL.line, 22, PALETTE.muted, 'center');
-    }
-    text(prompt, FIELD.width / 2, y + height - 40, 24, PALETTE.coin, 'center');
-  }
-
-  const TITLE_LINES = ['Dodge the red blocks. Catch the gold coins.', 'Move with ← → or A D.  Pause with P.', ''];
-  const PAUSED_LINES = ['The blocks will wait for you.'];
-  const OVER_LINES = ['', ''];
-
-  /** Paint one frame: the field, then the HUD or a panel for the screen the game is on. */
-  function draw(state, screen, best) {
-    context.setTransform(1, 0, 0, 1, 0, 0);
-    context.fillStyle = PALETTE.backdrop;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.setTransform(view.scale, 0, 0, view.scale, view.x, view.y);
-    drawField(state);
-    if (screen === SCREEN_TITLE) {
-      TITLE_LINES[2] = bestLabel(best);
-      drawPanel('Block Dodger', TITLE_LINES, 'Press Space or click to start');
-      return;
-    }
-    drawHud(state);
-    if (screen === SCREEN_PAUSED) drawPanel('Paused', PAUSED_LINES, 'Press P to resume');
-    else if (screen === SCREEN_OVER) {
-      OVER_LINES[0] = finalLabel(state.score);
-      OVER_LINES[1] = bestLabel(best);
-      drawPanel('Game over', OVER_LINES, 'Press Space or click to play again');
-    }
-  }
-
-  resize();
-  window.addEventListener('resize', resize);
-  return { draw };
+// Nine static tiles retain the rich world without per-frame geometry work.
+export function drawWorld(ctx,world,state,camera){if(!world.tiles){world.tiles=[];for(let y=0;y<3600;y+=1200)for(let x=0;x<4800;x+=1600){const tile=document.createElement('canvas');tile.width=1600;tile.height=1200;const tc=tile.getContext('2d');tc.translate(-x,-y);paintWorld(tc,world,{elapsed:0},{x:x+800,y:y+600,zoom:.5});world.tiles.push({x,y,canvas:tile});}}const hw=640/camera.zoom,hh=360/camera.zoom;for(const t of world.tiles)if(t.x<camera.x+hw&&t.x+1600>camera.x-hw&&t.y<camera.y+hh&&t.y+1200>camera.y-hh)ctx.drawImage(t.canvas,t.x,t.y);}
+export function nightAmount(t){const n=Math.max(0,Math.min(1,Math.max((t-.79)/.08,(.22-t)/.08)));return n*n*(3-2*n);}
+export function drawCar(ctx,c,driven,state){ctx.save();ctx.translate(c.x,c.y);ctx.rotate(c.angle);const w=c.w,h=c.h;
+ round(ctx,-w/2+4,-h/2+6,w,h,7,'#142b3d44');
+ for(const side of [-1,1]){ctx.save();ctx.translate(side*w/2,-h*.28);ctx.rotate(c.steer*.38);rect(ctx,-4,-8,7,16,'#202b34');ctx.restore();rect(ctx,side*w/2-3,h*.22,6,15,'#202b34');}
+ round(ctx,-w/2,-h/2,w,h,7,c.color);rect(ctx,-w/2+3,-h/2+7,w-6,3,'#ffffff40');
+ round(ctx,-w*.38,-h*.17,w*.76,h*.45,4,'#243e50');round(ctx,-w*.32,-h*.04,w*.64,h*.21,3,c.color);rect(ctx,-w*.29,-h*.14,w*.58,4,'#99c8cc');
+ if(c.police){rect(ctx,-w/2,0,w,18,'#172639');rect(ctx,-13,-3,13,6,Math.sin(state.elapsed*15)>0?'#ff425e':'#812b46');rect(ctx,0,-3,13,6,Math.sin(state.elapsed*15)<0?'#53b6ff':'#254e85');if(c.pursuing){circle(ctx,-9,-1,22,'#ff33552a');circle(ctx,9,-1,22,'#3388ff2a');}}
+ if(driven&&state.passengers){circle(ctx,8,7,5,'#f4c38e');if(state.passengers>1)circle(ctx,-8,12,5,'#d59e7c');}
+ if(c.type==='pickup')rect(ctx,-w*.36,h*.1,w*.72,h*.3,'#00000040');if(c.type==='taxi')round(ctx,-8,-1,16,7,2,'#fff1b3');
+ rect(ctx,-w/2+3,-h/2+1,7,4,'#fff1bb');rect(ctx,w/2-10,-h/2+1,7,4,'#fff1bb');rect(ctx,-w/2+3,h/2-5,7,4,c.braking?'#ff392b':'#993d38');rect(ctx,w/2-10,h/2-5,7,4,c.braking?'#ff392b':'#993d38');
+ if(driven){ctx.strokeStyle='#f6e6a7';ctx.lineWidth=1;ctx.strokeRect(-w/2-3,-h/2-3,w+6,h+6);}
+ if(c.damage>65)for(let i=0;i<4;i++)circle(ctx,Math.sin(state.elapsed*2+i)*12,-h*.4-((state.elapsed*25+i*13)%60),8+i*3,'#4a535b66');ctx.restore();}
+export function drawPlayer(ctx,p){if(p.car)return;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);const bob=Math.sin(p.walk)*2;circle(ctx,3,4,13,'#1f38414d');round(ctx,-11,-8+bob,22,24,6,'#152d40');round(ctx,-9,-7+bob,18,21,6,p.shirt||'#ee8a65');circle(ctx,0,-8+bob,7,'#dbad7b');rect(ctx,-7,8+Math.sin(p.walk)*3,5,8,'#253b54');rect(ctx,2,8-Math.sin(p.walk)*3,5,8,'#253b54');if(p.punchTime>0){ctx.save();ctx.rotate(-Math.sin(p.punchTime/.32*Math.PI)*1.4);round(ctx,8,-28,6,27,3,'#e4b184');ctx.restore();}else rect(ctx,8,-9,5,10,'#e4b184');ctx.restore();}
+export function drawLighting(ctx,world,cars,player,state,camera){const visible=(x,y,margin=220)=>!camera||(Math.abs(x-camera.x)<640/camera.zoom+margin&&Math.abs(y-camera.y)<360/camera.zoom+margin);const n=nightAmount(state.timeOfDay),gold=Math.max(0,1-Math.abs(state.timeOfDay-.77)/.07);ctx.fillStyle=`rgba(255,135,57,${gold*.19})`;ctx.fillRect(0,0,4800,3600);ctx.fillStyle=`rgba(5,18,51,${n*.64})`;ctx.fillRect(0,0,4800,3600);
+ const pool=(x,y,r,color)=>{const grad=ctx.createRadialGradient(x,y,0,x,y,r);grad.addColorStop(0,color);grad.addColorStop(1,'#ffffff00');ctx.fillStyle=grad;ctx.fillRect(x-r,y-r,r*2,r*2);};
+ if(n>0){ctx.save();ctx.globalAlpha=n;ctx.globalCompositeOperation='screen';for(const p of world.props)if(p.type==='lamp'&&visible(p.x,p.y))pool(p.x,p.y,100,'#ffdc8555');for(const b of world.buildings){if(!visible(b.x,b.y))continue;for(const w of b.windows||[])if(w.lit)rect(ctx,w.x,w.y,8,10,'#ffe09a99');if(b.neon){const x=b.x+b.w,y=b.y+15;pool(x,y+40,85,'#f544c644');ctx.shadowColor='#ff4fd2';ctx.shadowBlur=14;ctx.fillStyle='#ff8adf';ctx.textAlign='center';ctx.font='bold 10px sans-serif';[...b.neon].forEach((c,i)=>ctx.fillText(c,x,y+13+i*11));ctx.shadowBlur=0;}}ctx.save();ctx.translate(4540,3143);ctx.rotate(state.elapsed*.4);const beam=ctx.createLinearGradient(0,0,720,0);beam.addColorStop(0,'#fff2a666');beam.addColorStop(1,'#fff2a600');polygon(ctx,[{x:0,y:0},{x:720,y:-140},{x:720,y:140}],beam);ctx.restore();ctx.restore();}
+ for(const c of cars){if(!visible(c.x,c.y,300))continue;if(c.police&&c.pursuing){pool(c.x-12,c.y,65,'#ff234955');pool(c.x+12,c.y,65,'#238dff55');}if(c===player.car||n>.1){ctx.save();ctx.translate(c.x,c.y);ctx.rotate(c.angle);const grad=ctx.createLinearGradient(0,-c.h/2,0,-250);grad.addColorStop(0,`rgba(255,246,187,${.12+n*.3})`);grad.addColorStop(1,'#fff6bb00');polygon(ctx,[{x:-c.w/2,y:-c.h/2},{x:-85,y:-250},{x:85,y:-250},{x:c.w/2,y:-c.h/2}],grad);ctx.restore();}}}
+function drawPlayerRing(ctx,player,elapsed){
+ const pulse=Math.sin(elapsed*4);
+ ctx.save();
+ ctx.strokeStyle='#ffd47e';
+ ctx.shadowColor='#ffbd57';
+ ctx.shadowBlur=9;
+ ctx.globalAlpha=.65+pulse*.1;
+ ctx.lineWidth=2.5;
+ ctx.beginPath();
+ ctx.ellipse(player.x,player.y+2,22+pulse*1.5,18+pulse*1.5,0,0,TAU);
+ ctx.stroke();
+ ctx.restore();
 }
+function drawPlayerChevron(ctx,player,opacity){
+ if(opacity<=0)return;
+ ctx.save();
+ ctx.translate(player.x,player.y-29);
+ ctx.globalAlpha=opacity;
+ ctx.lineCap='round';
+ ctx.lineJoin='round';
+ ctx.beginPath();
+ ctx.moveTo(-5,-3);
+ ctx.lineTo(0,2);
+ ctx.lineTo(5,-3);
+ ctx.strokeStyle='#473322';
+ ctx.lineWidth=4;
+ ctx.stroke();
+ ctx.strokeStyle='#ffda88';
+ ctx.lineWidth=2;
+ ctx.stroke();
+ ctx.restore();
+}
+export function renderScene(ctx,world,cars,player,camera,state){ctx.clearRect(0,0,WIDTH,HEIGHT);ctx.save();ctx.translate(WIDTH/2,HEIGHT/2);ctx.scale(camera.zoom,camera.zoom);ctx.rotate(camera.rotation||0);ctx.translate(-camera.x,-camera.y);drawWorld(ctx,world,state,camera);for(const c of cars)drawCar(ctx,c,c===player.car,state);for(const p of [...(state.peds||[]),...(state.companions||[])]){if(p.down){rect(ctx,p.x-15,p.y-5,28,10,p.shirt);ctx.fillStyle='#ffe6a1';ctx.font='18px sans-serif';ctx.fillText('✦',p.x,p.y-12);}else drawPlayer(ctx,p);}if(!player.car)drawPlayerRing(ctx,player,state.elapsed);drawPlayer(ctx,player);drawActivities(ctx,window.__game);drawLighting(ctx,world,cars,player,state,camera);
+ if(state.target){const t=state.target;const glow=ctx.createLinearGradient(t.x,t.y-180,t.x,t.y);glow.addColorStop(0,'#ffd56b00');glow.addColorStop(1,'#ffd56b88');rect(ctx,t.x-18,t.y-180,36,180,glow);ctx.strokeStyle='#ffe299';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(t.x,t.y,36,20,0,0,TAU);ctx.stroke();ctx.fillStyle='#ffe5a0';ctx.textAlign='center';ctx.font='bold 20px sans-serif';ctx.fillText(state.missionActive?'▼':'D',t.x,t.y-52);}
+ for(const c of cars)if(c.label){ctx.textAlign='center';ctx.fillStyle='#ffe09a';ctx.font='bold 12px sans-serif';ctx.fillText('▼ '+c.label,c.x,c.y-55);}
+ for(const l of world.landmarks)if(Math.hypot(l.x-player.x,l.y-player.y)<620){ctx.font='bold 14px sans-serif';ctx.textAlign='center';const x=l.name==='The Lighthouse'?l.x:l.x+89,y=l.y-25;round(ctx,x-ctx.measureText(l.name).width/2-12,y-18,ctx.measureText(l.name).width+24,28,5,'#102b3cde');ctx.fillStyle='#f9e6b5';ctx.fillText(l.name,x,y);}
+ drawPlayerChevron(ctx,player,state.playerMarkerOpacity);
+ ctx.restore();}
