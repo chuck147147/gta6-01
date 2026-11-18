@@ -40,3 +40,28 @@ export function isLand(x,y,r=0){return x>=r&&x<=4800-r&&y>=r&&(y<=3050-r||(x>444
 export function circleHitsWorld(world,x,y,r){return !isLand(x,y,r)||world.buildings.some(b=>circleRect(x,y,r,b));}
 export function circleRect(x,y,r,b){const dx=x-Math.max(b.x,Math.min(x,b.x+b.w)),dy=y-Math.max(b.y,Math.min(y,b.y+b.h));return dx*dx+dy*dy<r*r;}
 export function moveWithSlide(world,body,dx,dy,r){let hit=false;if(!circleHitsWorld(world,body.x+dx,body.y,r))body.x+=dx;else hit=true;if(!circleHitsWorld(world,body.x,body.y+dy,r))body.y+=dy;else hit=true;return hit;}
+
+export function insideRect(x,y,rect){return x>=rect.x&&x<=rect.x+rect.w&&y>=rect.y&&y<=rect.y+rect.h;}
+export function trafficRoadPoint(world,x,y){return world.roads.some(r=>insideRect(x,y,r))&&!world.parkingLots.some(lot=>insideRect(x,y,lot))&&!circleHitsWorld(world,x,y,22);}
+export function nearestTrafficRoadPoint(world,x,y){
+ let nearest=null,distance=Infinity;
+ for(const road of world.roads){
+  const cx=Math.max(road.x+1,Math.min(road.x+road.w-1,x)),cy=Math.max(road.y+1,Math.min(road.y+road.h-1,y));
+  const bx=Math.max(22,Math.min(4778,cx)),by=Math.max(22,Math.min(3028,cy)),candidates=[{x:cx,y:cy},{x:bx,y:by}];
+  for(const lot of world.parkingLots)if(lot.x<=road.x+road.w&&lot.x+lot.w>=road.x&&lot.y<=road.y+road.h&&lot.y+lot.h>=road.y){
+   for(const px of [cx,bx,lot.x-1,lot.x+lot.w+1])for(const py of [cy,by,lot.y-1,lot.y+lot.h+1])candidates.push({x:px,y:py});
+  }
+  for(const point of candidates){const d=Math.hypot(point.x-x,point.y-y);if(d<distance&&insideRect(point.x,point.y,road)&&trafficRoadPoint(world,point.x,point.y)){nearest=point;distance=d;}}
+ }
+ return nearest;
+}
+export function keepPedOutsideBuildings(world,ped){
+ for(let i=0;i<world.buildings.length;i++){
+  // An edge is already outside the footprint interior, so overlapping buildings can be checked next.
+  const b=world.buildings.find(b=>ped.x>b.x-4&&ped.x<b.x+b.w+4&&ped.y>b.y-4&&ped.y<b.y+b.h+4);
+  if(!b)return;
+  const left=b.x-4,right=b.x+b.w+4,top=b.y-4,bottom=b.y+b.h+4;
+  const distances=[ped.x-left,right-ped.x,ped.y-top,bottom-ped.y],edge=distances.indexOf(Math.min(...distances));
+  if(edge===0)ped.x=left;else if(edge===1)ped.x=right;else if(edge===2)ped.y=top;else ped.y=bottom;
+ }
+}

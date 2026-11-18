@@ -10,10 +10,10 @@ export function stageShot(name,state,player,cars,camera,g){
  if(name==='chase'||name==='drive'){
  state.timeOfDay=.76;drive(pose('sports',2550,1597,'Neon Avenue (y=1575)',{color:'#ff863e',speed:380}));
  pose('sedan',2400,1553,'Neon Avenue (y=1575)',{police:true,pursuing:true,color:'#eee9dc',speed:370});
- pose('sedan',2240,1597,'Neon Avenue (y=1575)',{police:true,pursuing:true,color:'#eee9dc',speed:370});
+ pose('sedan',2320,1597,'Neon Avenue (y=1575)',{police:true,pursuing:true,color:'#eee9dc',speed:370});
  pose('sedan',2050,1553,'Neon Avenue (y=1575)',{police:true,pursuing:true,color:'#eee9dc',speed:365});
  pose('compact',2840,1553,'Neon Avenue (y=1575)',{color:'#69c9c1',speed:200});
- Object.assign(g.wanted,{level:3,heat:105,state:'pursuit'});state.target={x:3070,y:1597};state.objective='Lose the police — protect the cargo';state.missionActive=true;Object.assign(camera,{x:2520,y:1540,zoom:.95,rotation:-.10});
+ Object.assign(g.wanted,{level:3,heat:105,state:'pursuit'});state.target={x:3070,y:1597};state.objective='Lose the police — protect the cargo';state.missionActive=true;Object.assign(camera,{x:2545,y:1560,zoom:1.12,rotation:-.10});
  }else if(name==='mission'){
  drive(pose('sports',4020,2497,'Palm Heights Boulevard (y=2475)',{color:'#f48357',speed:240}));pose('sedan',4440,2453,'Palm Heights Boulevard (y=2475)',{speed:150});state.target={x:4270,y:2475};state.missionActive=true;state.objective='PACKAGE RUN — Deliver to the Palm Heights villa';Object.assign(g.missions,{current:'package-run',nextMission:1,objectiveIndex:1,timer:118,maxTimer:150,dialogue:[{who:'DELIA',text:"Keep moving, Jax. The villa is waiting. Don't bring company."}]});Object.assign(camera,{x:4100,y:2470,zoom:.95});
  }else if(name==='foot'){
