@@ -1,7 +1,78 @@
 import {createCar} from './entities.js';
-import {moveWithSlide} from './world.js';
+import {circleHitsWorld,moveWithSlide,nearestTrafficRoadPoint} from './world.js';
 export function initPolice(g){const wanted={level:0,heat:0,state:'clear',lastSeen:0,bust:0};g.wanted=wanted;g.police=[];
- function spawn(patrol=false){const c=createCar('sedan',1500,1575);Object.assign(c,{police:true,patrol,color:'#f2f1df',cruise:110});const a=Math.random()*Math.PI*2,d=500+Math.random()*300;c.x=Math.max(100,Math.min(4650,g.player.x+Math.cos(a)*d));c.y=Math.max(100,Math.min(2850,g.player.y+Math.sin(a)*d));c.x=300+Math.round((c.x-300)/600)*600+21;c.ai=dt=>{const chase=wanted.level>0&&(c.pursuing||Math.hypot(c.x-g.player.x,c.y-g.player.y)<460);c.pursuing=chase;if(chase){const dx=g.player.x+g.player.vx*.4-c.x,dy=g.player.y+g.player.vy*.4-c.y;let desired=Math.atan2(dx,-dy);if(Math.hypot(dx,dy)>350)desired=Math.round(desired/(Math.PI/2))*Math.PI/2;const diff=Math.atan2(Math.sin(desired-c.angle),Math.cos(desired-c.angle));c.angle+=Math.max(-2.4*dt,Math.min(2.4*dt,diff));c.speed+=(285-c.speed)*dt*1.5;}else{c.speed+=(105-c.speed)*dt;if(c.y<80)c.angle=Math.PI;if(c.y>2890)c.angle=0;}};g.cars.push(c);g.police.push(c);return c;}
+ function pursuitPosition(c,minDistance,maxDistance){
+  const {player,world,cars}=g;
+  const bearingX=c.x-player.x,bearingY=c.y-player.y;
+  const bearingLength=Math.hypot(bearingX,bearingY)||1;
+  const radius=Math.max(c.w/2,22);
+  let best=null,bestScore=Infinity;
+  for(const road of world.roads){
+   const vertical=road.axis==='v';
+   const along=vertical?player.y:player.x;
+   const start=vertical?road.y:road.x,end=start+(vertical?road.h:road.w);
+   for(const lane of [road.center-30,road.center,road.center+30]){
+    for(let pos=Math.max(start+radius,along-maxDistance);pos<=Math.min(end-radius,along+maxDistance);pos+=10){
+     const x=vertical?lane:pos,y=vertical?pos:lane;
+     const dx=x-player.x,dy=y-player.y,distance=Math.hypot(dx,dy);
+     if(distance<minDistance||distance>maxDistance)continue;
+     const alignment=(dx*bearingX+dy*bearingY)/(distance*bearingLength);
+     let score=distance-minDistance+alignment*180+(alignment>0?300:0);
+     if(score>=bestScore||circleHitsWorld(world,x,y,radius))continue;
+     if(cars.some(other=>other!==c&&Math.hypot(other.x-x,other.y-y)<70))continue;
+     // Check the approach all the way to bust range using the car's collision radius.
+     for(let remaining=distance-6;remaining>=52;remaining-=6){
+      if(circleHitsWorld(world,player.x+dx*remaining/distance,player.y+dy*remaining/distance,radius)){
+       score+=1000+remaining;
+       break;
+      }
+     }
+     for(const other of cars){
+      if(other===c||other===player.car||other.traffic||other.ai)continue;
+      const projection=((other.x-player.x)*dx+(other.y-player.y)*dy)/distance;
+      if(projection<52||projection>distance)continue;
+      const lateral=Math.abs((other.x-player.x)*dy-(other.y-player.y)*dx)/distance;
+      if(lateral<(c.h+other.h)*.37)score+=450;
+     }
+     if(score<bestScore){bestScore=score;best={x,y,angle:Math.atan2(-dx,dy),speed:0,vx:0,vy:0};}
+    }
+   }
+  }
+  return best;
+ }
+ function spawn(patrol=false){
+  const c=createCar('sedan',1500,1575);
+  Object.assign(c,{police:true,patrol,color:'#f2f1df',cruise:110});
+  const a=Math.random()*Math.PI*2,d=500+Math.random()*300;
+  c.x=g.player.x+Math.cos(a)*d;
+  c.y=g.player.y+Math.sin(a)*d;
+  const lane=300+Math.max(0,Math.min(7,Math.round((c.x-300)/600)))*600;
+  const initialPoint=(!patrol&&pursuitPosition(c,420,520))||
+   nearestTrafficRoadPoint(g.world,lane+21,Math.max(100,Math.min(2850,c.y)));
+  Object.assign(c,initialPoint,{pursuing:!patrol});
+  c.recover=()=>{
+   const point=pursuitPosition(c,c.pursuing?320:300,420);
+   if(!point)return false;
+   Object.assign(c,point);
+   return true;
+  };
+  c.ai=dt=>{
+   const dx=g.player.x-c.x,dy=g.player.y-c.y,distance=Math.hypot(dx,dy);
+   c.pursuing=wanted.level>0&&(c.pursuing||distance<520);
+   if(c.pursuing){
+    const desired=Math.atan2(dx,-dy);
+    const diff=Math.atan2(Math.sin(desired-c.angle),Math.cos(desired-c.angle));
+    c.angle+=Math.max(-3.4*dt,Math.min(3.4*dt,diff));
+    const targetSpeed=Math.max(0,Math.min(285,(distance-38)*3))*Math.max(0,Math.cos(diff));
+    c.speed+=(targetSpeed-c.speed)*dt*2.5;
+   }else{
+    c.speed+=(105-c.speed)*dt;
+    if(c.y<80)c.angle=0;
+    if(c.y>2890)c.angle=Math.PI;
+   }
+  };
+  g.cars.push(c);g.police.push(c);return c;
+ }
  g.spawnPolice=spawn;spawn(true);spawn(true);
  g.reportCrime=(kind,x=g.player.x,y=g.player.y)=>{if(kind==='punch')for(const p of g.peds)if(Math.hypot(p.x-x,p.y-y)<80){p.flee=3;p.away=Math.atan2(p.y-y,p.x-x);}if(kind==='carTheft'&&!g.peds.some(p=>Math.hypot(p.x-x,p.y-y)<260)&&!g.police.some(p=>Math.hypot(p.x-x,p.y-y)<260))return;const points={carTheft:35,theft:35,ped:40,police:35,traffic:12,punch:30,assault:35,vandalism:18};wanted.heat=Math.min(175,wanted.heat+(points[kind]||35));wanted.level=Math.min(5,Math.floor(wanted.heat/35));wanted.lastSeen=0;};
  g.clearWanted=()=>{Object.assign(wanted,{level:0,heat:0,state:'clear',bust:0,lastSeen:0});for(const c of [...g.police])if(!c.patrol){g.cars.splice(g.cars.indexOf(c),1);g.police.splice(g.police.indexOf(c),1);}};
