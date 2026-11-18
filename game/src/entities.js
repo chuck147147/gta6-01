@@ -5,7 +5,7 @@ export function createPlayer(world){return {...world.spawn,angle:0,vx:0,vy:0,hea
 export function createCar(type,x,y,angle=0,rng=mulberry32(1)){return {type,taxi:type==='taxi',...CAR_TYPES[type],x,y,angle,color:pick(rng,CAR_TYPES[type].colors),speed:0,vx:0,vy:0,steer:0,damage:0,locked:false,traffic:false,braking:false,stop:0,intersection:'',radius:20};}
 export function populateCars(world){const rng=mulberry32(world.seed+91),cars=[],types=Object.keys(CAR_TYPES);
  const place=c=>{const radius=Math.hypot(c.w,c.h)/2;if(circleHitsWorld(world,c.x,c.y,radius)||cars.some(other=>Math.hypot(other.x-c.x,other.y-c.y)<Math.max(64,radius+Math.hypot(other.w,other.h)/2)))return false;cars.push(c);return true;};
- for(const lot of world.parkingLots)for(const x of [lot.x+25,lot.x+115])for(const y of [lot.y+30,lot.y+110])place(createCar(pick(rng,types),x,y,0,rng));
+ for(const lot of world.parkingLots)for(const x of lot.x===2645&&lot.y===1390?[lot.x+115]:[lot.x+25,lot.x+115])for(const y of [lot.y+30,lot.y+110])place(createCar(pick(rng,types),x,y,0,rng));
  for(let i=0;i<30;i++)place(createCar(pick(rng,types),300+(i%8)*600+80,330+Math.floor(i/8)*450,0,rng));
  for(let i=0,placed=0;i<140&&placed<14;i++){const c=createCar(pick(rng,types),300+Math.floor(rng()*8)*600+21,range(rng,100,2900),0,rng);if(!trafficRoadPoint(world,c.x,c.y))continue;c.traffic=true;c.cruise=range(rng,95,155);if(place(c))placed++;}return cars;
 }
@@ -49,7 +49,7 @@ export function updateCars(cars,player,input,world,dt){
   if(moveWithSlide(world,c,c.vx*dt,c.vy*dt,Math.max(c.w/2,22))){world.onCrash?.(c,null,Math.abs(c.speed));c.damage=Math.min(100,c.damage+Math.abs(c.speed)*.025);c.speed*=-.3;c.vx*=-.25;c.vy*=-.25;}
   movement[i]=dt>0?Math.hypot(c.x-startX,c.y-startY)/dt:0;
  }
- for(let i=0;i<cars.length;i++)for(let j=i+1;j<cars.length;j++){const a=cars[i],b=cars[j],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy),r=(a.h+b.h)*.37;if(d>0&&d<r){const nx=dx/d,ny=dy/d,p=(r-d)/2;moveWithSlide(world,a,-nx*p,-ny*p,22);moveWithSlide(world,b,nx*p,ny*p,22);const impact=Math.hypot(a.vx-b.vx,a.vy-b.vy);if(impact>35){world.onCrash?.(a,b,impact);a.damage=Math.min(100,a.damage+impact*.012);b.damage=Math.min(100,b.damage+impact*.012);}a.speed*=-.22;b.speed*=-.22;}}
+ for(let i=0;i<cars.length;i++)for(let j=i+1;j<cars.length;j++){const a=cars[i],b=cars[j],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy),r=(a.h+b.h)*.37;if(d>0&&d<r){const nx=dx/d,ny=dy/d,p=(r-d)/2;moveWithSlide(world,a,-nx*p,-ny*p,22);moveWithSlide(world,b,nx*p,ny*p,22);const impact=Math.hypot(a.vx-b.vx,a.vy-b.vy);if(impact>35){world.onCrash?.(a,b,impact);a.damage=Math.min(100,a.damage+impact*.012);b.damage=Math.min(100,b.damage+impact*.012);}const avn=a.vx*nx+a.vy*ny,bvn=b.vx*nx+b.vy*ny,rel=avn-bvn;if(rel>0){let imp=rel*.625;a.vx-=imp*nx;a.vy-=imp*ny;b.vx+=imp*nx;b.vy+=imp*ny;a.speed=a.vx*Math.sin(a.angle)-a.vy*Math.cos(a.angle);b.speed=b.vx*Math.sin(b.angle)-b.vy*Math.cos(b.angle);}else{a.speed*=-.22;b.speed*=-.22;}}}
  // Collision separation can move a stalled car without it making progress under power.
  for(let i=cars.length-1;i>=0;i--){const c=cars[i];if(c===player.car||(!c.traffic&&!c.police))continue;const distance=Math.hypot(c.x-player.x,c.y-player.y),intendsToMove=c.traffic||!c.pursuing||distance>110,speed=Math.min(movement[i],Math.abs(c.speed));c.stuckTime=intendsToMove&&speed<8?(c.stuckTime||0)+dt:0;if(c.stuckTime>=(c.pursuing?2.5:3)){if(c.traffic)cars.splice(i,1);else if(c.recover?.())c.stuckTime=0;}}
 
